@@ -3,8 +3,10 @@ import {
 	collection,
 	deleteDoc,
 	doc,
+	getDocs,
 	onSnapshot,
 	query,
+	setDoc,
 	where,
 	updateDoc,
 } from "firebase/firestore";
@@ -43,6 +45,26 @@ export async function createDocument(collectionName, data) {
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Не удалось создать документ.",
+		};
+	}
+}
+
+/**
+ * Sets a document by explicit id.
+ * @param {string} collectionName
+ * @param {string} documentId
+ * @param {object} data
+ * @param {boolean} [merge=true]
+ * @returns {Promise<{success: boolean, data?: string, error?: string}>}
+ */
+export async function setDocument(collectionName, documentId, data, merge = true) {
+	try {
+		await setDoc(getDocumentRef(collectionName, documentId), data, { merge });
+		return { success: true, data: documentId };
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Не удалось сохранить документ.",
 		};
 	}
 }
@@ -121,6 +143,24 @@ export function subscribeToCollectionWhere(collectionName, fieldName, operator, 
 
 		callback(items);
 	});
+}
+
+/**
+ * Reads documents matching a simple field filter once.
+ * @param {string} collectionName
+ * @param {string} fieldName
+ * @param {'==' | '!=' | '<' | '<=' | '>' | '>=' | 'array-contains' | 'in' | 'not-in'} operator
+ * @param {unknown} value
+ * @returns {Promise<Array<{id: string, [key: string]: unknown}>>}
+ */
+export async function getCollectionWhere(collectionName, fieldName, operator, value) {
+	const collectionQuery = query(getCollectionRef(collectionName), where(fieldName, operator, value));
+	const snapshot = await getDocs(collectionQuery);
+
+	return snapshot.docs.map((documentSnapshot) => ({
+		id: documentSnapshot.id,
+		...documentSnapshot.data(),
+	}));
 }
 
 /**

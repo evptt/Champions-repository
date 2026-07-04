@@ -18,10 +18,18 @@ export function calculateBalances(participants = [], expenses = []) {
     }
 
     const payerId = expense.paidByUserId ?? expense.paidBy ?? expense.createdBy ?? null;
+    const splitMap = expense.splitAmounts ?? expense.splits ?? null;
     const splitIds = (expense.splitByUserIds ?? expense.participantIds ?? participantIds).filter(Boolean);
 
     if (payerId) {
       balanceMap.set(payerId, (balanceMap.get(payerId) ?? 0) + amount);
+    }
+
+    if (splitMap && typeof splitMap === "object") {
+      for (const [userId, shareAmount] of Object.entries(splitMap)) {
+        balanceMap.set(userId, (balanceMap.get(userId) ?? 0) - (Number(shareAmount) || 0));
+      }
+      continue;
     }
 
     if (splitIds.length === 0) {

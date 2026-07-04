@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Travel MVP</title>
+    <title>Попутно — совместные поездки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
     <script type="importmap">
       {
         "imports": {
@@ -13,9 +20,535 @@
         }
       }
     </script>
-    <script type="module" src="./scripts/app.js"></script>
   </head>
   <body>
-    <noscript>Для работы приложения требуется JavaScript.</noscript>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="stamp">ПП</span>
+          <span>Попутно</span>
+        </div>
+        <div class="role-badge">
+          <span id="current-user-name">Вы: —</span>
+          <span class="role-pill" id="role-pill" data-role="member"
+            >участник</span
+          >
+        </div>
+        <div class="auth-actions">
+          <button
+            class="btn btn-ghost btn-small theme-toggle"
+            id="btn-theme-toggle"
+            type="button"
+            title="Сменить тему"
+          >
+            🌙
+          </button>
+          <button class="btn btn-ghost btn-small" id="btn-auth-open">
+            Войти
+          </button>
+          <button
+            class="btn btn-ghost btn-small"
+            id="btn-sign-out"
+            style="display: none"
+          >
+            Выйти
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="view active" id="view-home">
+          <div class="home-hero">
+            <div class="container">
+              <span class="eyebrow"
+                >Планирование · общий бюджет · честный расчёт</span
+              >
+              <div class="hero-row">
+                <div>
+                  <h1>Ваши поездки</h1>
+                  <p class="sub">
+                    Планируйте маршруты вместе и не считайте расписки на
+                    салфетках — «Попутно» сам решит, кто кому должен.
+                  </p>
+                </div>
+                <button class="btn btn-primary" id="btn-new-trip">
+                  + Новая поездка
+                </button>
+              </div>
+
+              <form class="filter-bar" id="filter-form">
+                <div class="field">
+                  <label for="f-name">Название</label>
+                  <input
+                    type="text"
+                    id="f-name"
+                    placeholder="Например, Грузия"
+                  />
+                </div>
+                <div class="field">
+                  <label for="f-date-from">Дата от</label>
+                  <input type="date" id="f-date-from" />
+                </div>
+                <div class="field">
+                  <label for="f-date-to">Дата до</label>
+                  <input type="date" id="f-date-to" />
+                </div>
+                <div class="field">
+                  <label for="f-country-input">Страна</label>
+                  <div class="tag-input" id="f-country-wrap">
+                    <input
+                      type="text"
+                      id="f-country-input"
+                      placeholder="Любая"
+                    />
+                    <div
+                      class="tag-suggestions"
+                      id="f-country-suggestions"
+                    ></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="f-city-input">Город</label>
+                  <div class="tag-input" id="f-city-wrap">
+                    <input type="text" id="f-city-input" placeholder="Любой" />
+                    <div class="tag-suggestions" id="f-city-suggestions"></div>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Искать</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="container">
+            <div class="trip-grid" id="trip-grid"></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-trip">
+          <div class="container">
+            <div class="trip-header">
+              <button class="back-link" id="btn-back-home">
+                ← Все поездки
+              </button>
+              <div class="trip-title-row">
+                <div>
+                  <div class="ticket-route" id="trip-route"></div>
+                  <h1 id="trip-name">—</h1>
+                  <p
+                    class="sub"
+                    id="trip-dates"
+                    style="color: var(--ink-soft); margin-top: 6px"
+                  ></p>
+                </div>
+                <div class="trip-actions">
+                  <button class="btn btn-ghost btn-small" id="btn-invite">
+                    Пригласить участника
+                  </button>
+                  <button class="btn btn-danger btn-small" id="btn-delete-trip">
+                    Удалить поездку
+                  </button>
+                  <button
+                    class="btn btn-primary btn-small"
+                    id="btn-add-expense"
+                  >
+                    + Добавить трату
+                  </button>
+                </div>
+              </div>
+
+              <div class="trip-stats">
+                <div class="stat">
+                  <div class="label">Бюджет</div>
+                  <div class="value mono" id="stat-budget">—</div>
+                </div>
+                <div class="stat">
+                  <div class="label">Потрачено</div>
+                  <div class="value mono" id="stat-spent">—</div>
+                </div>
+                <div class="stat">
+                  <div class="label">Участников</div>
+                  <div class="value mono" id="stat-people">—</div>
+                </div>
+              </div>
+
+              <nav class="tabs">
+                <button class="tab-btn active" data-tab="overview">
+                  Обзор
+                </button>
+                <button class="tab-btn" data-tab="people">Участники</button>
+                <button class="tab-btn" data-tab="expenses">Траты</button>
+                <button class="tab-btn" data-tab="totals">Итого</button>
+                <button class="tab-btn" data-tab="history">История</button>
+              </nav>
+            </div>
+
+            <div class="tab-panel active" data-panel="overview">
+              <div class="panel-head">
+                <div>
+                  <h2>О поездке</h2>
+                  <p>Основные параметры, заданные при создании.</p>
+                </div>
+              </div>
+              <div class="form-grid" style="max-width: 640px">
+                <div class="field-wide">
+                  <label>Валюта поездки</label>
+                  <div id="ov-currency" class="mono">—</div>
+                </div>
+                <div class="field-wide">
+                  <label>Общий бюджет</label>
+                  <div id="ov-budget" class="mono">—</div>
+                </div>
+                <div class="field-wide full">
+                  <label>Страны и города</label>
+                  <div id="ov-places">—</div>
+                </div>
+                <div class="field-wide full">
+                  <label>Владелец поездки</label>
+                  <div id="ov-owner">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-panel" data-panel="people">
+              <div class="panel-head">
+                <div>
+                  <h2>Участники поездки</h2>
+                  <p>
+                    У каждого участника — свой профиль расходов внутри поездки.
+                  </p>
+                </div>
+                <button class="btn btn-ghost btn-small" id="btn-add-person">
+                  + Добавить участника
+                </button>
+              </div>
+              <div id="suggested-people-wrap" style="margin-bottom: 16px">
+                <div class="hint" style="margin-bottom: 8px">
+                  Профили из ваших прошлых поездок — добавить одним кликом:
+                </div>
+                <div id="suggested-people"></div>
+              </div>
+              <div class="people-list" id="people-list"></div>
+            </div>
+
+            <div class="tab-panel" data-panel="expenses">
+              <div class="panel-head">
+                <div>
+                  <h2>Траты</h2>
+                  <p>Все расходы поездки, от новых к старым.</p>
+                </div>
+                <button
+                  class="btn btn-primary btn-small"
+                  id="btn-add-expense-2"
+                >
+                  + Добавить трату
+                </button>
+              </div>
+              <div id="expense-list"></div>
+            </div>
+
+            <div class="tab-panel" data-panel="totals">
+              <div class="panel-head">
+                <div>
+                  <h2>Кто кому должен</h2>
+                  <p>
+                    Минимальный набор переводов, чтобы закрыть все долги
+                    поездки.
+                  </p>
+                </div>
+              </div>
+              <div class="balance-list" id="balance-list"></div>
+            </div>
+
+            <div class="tab-panel" data-panel="history">
+              <div class="panel-head">
+                <div>
+                  <h2>История изменений</h2>
+                  <p>Каждое добавление, редактирование и удаление траты.</p>
+                </div>
+              </div>
+              <div class="history-list" id="history-list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="modal-trip">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Новая поездка</h3>
+          <button class="modal-close" data-close="modal-trip">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field-wide full">
+              <label for="nt-name">Название поездки</label>
+              <input
+                type="text"
+                id="nt-name"
+                placeholder="Например, Осень в Грузии"
+              />
+            </div>
+            <div class="field-wide">
+              <label for="nt-date-start">Дата начала</label>
+              <input type="date" id="nt-date-start" />
+            </div>
+            <div class="field-wide">
+              <label for="nt-date-end">Дата окончания</label>
+              <input type="date" id="nt-date-end" />
+            </div>
+            <div class="field-wide">
+              <label for="nt-currency">Валюта</label>
+              <select id="nt-currency"></select>
+            </div>
+            <div class="field-wide">
+              <label for="nt-budget">Общий бюджет</label>
+              <input type="number" id="nt-budget" placeholder="0" min="0" />
+            </div>
+            <div class="field-wide full">
+              <label>Страны</label>
+              <div class="tag-input" id="nt-countries-wrap">
+                <input
+                  type="text"
+                  id="nt-countries-input"
+                  placeholder="Введите страну и нажмите Enter"
+                />
+                <div
+                  class="tag-suggestions"
+                  id="nt-countries-suggestions"
+                ></div>
+              </div>
+            </div>
+            <div class="field-wide full">
+              <label>Города</label>
+              <div class="tag-input" id="nt-cities-wrap">
+                <input
+                  type="text"
+                  id="nt-cities-input"
+                  placeholder="Введите город и нажмите Enter"
+                />
+                <div class="tag-suggestions" id="nt-cities-suggestions"></div>
+              </div>
+              <div class="hint">
+                У поездки может быть несколько стран и городов — они все
+                участвуют в поиске и фильтрации.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close="modal-trip">Отмена</button>
+          <button class="btn btn-primary" id="nt-submit">
+            Создать поездку
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-person">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Добавить участника</h3>
+          <button class="modal-close" data-close="modal-person">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="field-wide">
+            <label for="np-login">Логин участника</label>
+            <input
+              type="text"
+              id="np-login"
+              placeholder="Например, dima_petrov"
+            />
+          </div>
+          <div class="hint">
+            Участник должен уже иметь зарегистрированный аккаунт. По логину мы
+            найдём профиль пользователя и добавим его в поездку.
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close="modal-person">
+            Отмена
+          </button>
+          <button class="btn btn-primary" id="np-submit">Добавить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-invite">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Пригласить в поездку</h3>
+          <button class="modal-close" data-close="modal-invite">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="field-wide">
+            <label>Ссылка для присоединения</label>
+            <input type="text" id="invite-link" readonly />
+            <div class="hint">
+              Отправьте ссылку на почту или скопируйте и перешлите вручную.
+              Перешедший по ссылке присоединится с ролью «участник».
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close="modal-invite">
+            Закрыть
+          </button>
+          <button class="btn btn-primary" id="invite-copy">
+            Скопировать ссылку
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-expense">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="expense-modal-title">Новая трата</h3>
+          <button class="modal-close" data-close="modal-expense">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="field-wide full">
+              <label for="ex-title">Описание траты</label>
+              <input
+                type="text"
+                id="ex-title"
+                placeholder="Например, ужин в таверне"
+              />
+            </div>
+            <div class="field-wide">
+              <label for="ex-payer">Кто платил</label>
+              <select id="ex-payer"></select>
+            </div>
+            <div class="field-wide">
+              <label for="ex-category">Категория</label>
+              <select id="ex-category"></select>
+              <input
+                type="text"
+                id="ex-category-custom"
+                placeholder="Название категории"
+                style="margin-top: 8px; display: none"
+              />
+            </div>
+            <div class="field-wide">
+              <label for="ex-amount">Сумма</label>
+              <input type="number" id="ex-amount" min="0" placeholder="0" />
+            </div>
+            <div class="field-wide">
+              <label for="ex-type">Тип траты</label>
+              <select id="ex-type">
+                <option value="shared">Общая</option>
+                <option value="personal">Личная</option>
+                <option value="on_behalf">Оплата за другого</option>
+              </select>
+            </div>
+            <div class="field-wide">
+              <label for="ex-currency">Валюта</label>
+              <select id="ex-currency"></select>
+            </div>
+            <div class="field-wide full">
+              <label>За кого (участники траты)</label>
+              <div class="participant-picker" id="ex-participants"></div>
+            </div>
+            <div class="field-wide full">
+              <label>Как делим</label>
+              <div class="split-toggle">
+                <button type="button" class="active" id="split-equal">
+                  Поровну
+                </button>
+                <button type="button" id="split-manual">Вручную</button>
+              </div>
+              <div
+                id="manual-split-wrap"
+                style="
+                  display: none;
+                  margin-top: 10px;
+                  flex-direction: column;
+                  gap: 8px;
+                "
+              ></div>
+            </div>
+            <div class="field-wide full">
+              <label>Фото чека</label>
+              <div class="file-drop">
+                <input
+                  type="file"
+                  id="ex-receipt"
+                  accept="image/*"
+                  multiple
+                  style="width: 100%"
+                />
+                Прикрепите одну или несколько фотографий чека
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close="modal-expense">
+            Отмена
+          </button>
+          <button class="btn btn-primary" id="ex-submit">
+            Сохранить трату
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-auth">
+      <div class="modal auth-modal">
+        <div class="modal-head">
+          <h3>Вход и регистрация</h3>
+          <button class="modal-close" data-close="modal-auth">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="auth-switcher">
+            <button type="button" class="active" id="auth-mode-signin">
+              Войти
+            </button>
+            <button type="button" id="auth-mode-signup">Регистрация</button>
+          </div>
+          <div class="field-wide" id="auth-fullname-wrap" style="display: none">
+            <label for="auth-fullname">Имя и фамилия</label>
+            <input
+              type="text"
+              id="auth-fullname"
+              placeholder="Например, Марина Иванова"
+            />
+          </div>
+          <div class="field-wide" id="auth-login-wrap" style="display: none">
+            <label for="auth-login">Логин на латинице</label>
+            <input type="text" id="auth-login" placeholder="marina_ivanova" />
+          </div>
+          <div class="field-wide">
+            <label for="auth-email">Email</label>
+            <input
+              type="email"
+              id="auth-email"
+              placeholder="name@example.com"
+            />
+          </div>
+          <div class="field-wide">
+            <label for="auth-password">Пароль</label>
+            <input
+              type="password"
+              id="auth-password"
+              placeholder="Не менее 6 символов"
+            />
+          </div>
+          <div class="hint">
+            Пароли хранятся только в Firebase Auth, а в Firestore лежит только
+            профиль пользователя.
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close="modal-auth">Отмена</button>
+          <button class="btn btn-primary" id="auth-submit">Продолжить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="./scripts/app.js"></script>
   </body>
 </html>

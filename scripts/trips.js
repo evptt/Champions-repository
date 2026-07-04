@@ -1,6 +1,7 @@
 import { serverTimestamp } from "firebase/firestore";
 import { COLLECTIONS, TRIP_ROLES } from "./config.js";
 import { createDocument, deleteDocument, subscribeToCollection, updateDocument } from "./firestore-service.js";
+import { logActivity } from "./history.js";
 
 const TRIPS_COLLECTION = COLLECTIONS.trips;
 
@@ -33,8 +34,11 @@ export async function createTrip(payload) {
 			cities: Array.isArray(payload.cities) ? payload.cities.filter(Boolean) : [],
 			totalBudget: Number(payload.totalBudget) || 0,
 			ownerId: payload.ownerId,
+			ownerName: payload.ownerName ?? "",
 			currency: payload.currency ?? "USD",
 			joinCode: generateJoinCode(),
+			guestIds: [],
+			participantCount: 1,
 			roles: {
 				[payload.ownerId]: TRIP_ROLES.owner,
 			},
@@ -43,7 +47,9 @@ export async function createTrip(payload) {
 			updatedAt: serverTimestamp(),
 		};
 
-		return await createDocument(TRIPS_COLLECTION, tripData);
+		const result = await createDocument(TRIPS_COLLECTION, tripData);
+
+		return result;
 	} catch (error) {
 		return {
 			success: false,
@@ -75,6 +81,44 @@ export async function deleteTrip(tripId) {
 }
 
 /**
+ * Deletes a trip and related documents from auxiliary collections.
+ * @param {string} tripId
+ * @param {{participantIds?: Array<string>, expenseIds?: Array<string>, activityIds?: Array<string>, notificationIds?: Array<string>}} relatedDocs
+ * @returns {Promise<{success: boolean, data?: null, error?: string}>}
+ */
+export async function deleteTripCascade(tripId, relatedDocs = {}) {
+	try {
+		const participantIds = relatedDocs.participantIds ?? [];
+		const expenseIds = relatedDocs.expenseIds ?? [];
+		const activityIds = relatedDocs.activityIds ?? [];
+		const notificationIds = relatedDocs.notificationIds ?? [];
+
+		for (const participantId of participantIds) {
+			await deleteDocument(COLLECTIONS.participants, participantId);
+		}
+
+		for (const expenseId of expenseIds) {
+			await deleteDocument(COLLECTIONS.expenses, expenseId);
+		}
+
+		for (const activityId of activityIds) {
+			await deleteDocument(COLLECTIONS.activities, activityId);
+		}
+
+		for (const notificationId of notificationIds) {
+			await deleteDocument(COLLECTIONS.notifications, notificationId);
+		}
+
+		return await deleteDocument(TRIPS_COLLECTION, tripId);
+	} catch (error) {
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : "Не удалось удалить поездку.",
+		};
+	}
+}
+
+/**
  * Subscribes to the trips collection in realtime.
  * @param {(trips: Array<object>) => void} callback
  * @returns {() => void}
@@ -97,22 +141,54 @@ export function findTripByJoinCode(trips, joinCode) {
 /**
  * Returns trips filtered by one or more search criteria.
  * @param {Array<object>} trips
- * @param {{title?: string, date?: string, country?: string, city?: string}} filters
+ * @param {{title?: string, dateFrom?: string, dateTo?: string, countries?: Array<string>, cities?: Array<string>}} filters
  * @returns {Array<object>}
  */
 export function filterTrips(trips, filters = {}) {
 	const titleQuery = filters.title?.trim().toLowerCase() ?? "";
-	const dateQuery = filters.date?.trim() ?? "";
-	const countryQuery = filters.country?.trim().toLowerCase() ?? "";
-	const cityQuery = filters.city?.trim().toLowerCase() ?? "";
+	const dateFromQuery = filters.dateFrom?.trim() ?? "";
+	const dateToQuery = filters.dateTo?.trim() ?? "";
+	const countryQueries = Array.isArray(filters.countries)
+		? filters.countries.filter(Boolean).map((country) => country.trim().toLowerCase())
+		: [];
+	const cityQueries = Array.isArray(filters.cities)
+		? filters.cities.filter(Boolean).map((city) => city.trim().toLowerCase())
+		: [];
+
+	const parseDate = (value) => {
+		if (!value) {
+			return null;
+		}
+
+		const date = new Date(`${value}T00:00:00`);
+		return Number.isNaN(date.getTime()) ? null : date;
+	};
 
 	return trips.filter((trip) => {
 		const titleMatches = !titleQuery || trip.title?.toLowerCase().includes(titleQuery);
-		const dateMatches = !dateQuery || trip.dates?.start === dateQuery || trip.dates?.end === dateQuery;
+
+		const tripStartDate = parseDate(trip.dates?.start);
+		const tripEndDate = parseDate(trip.dates?.end);
+		const fromDate = parseDate(dateFromQuery);
+		const toDate = parseDate(dateToQuery);
+		let dateMatches = true;
+
+		if (fromDate) {
+			dateMatches = Boolean(tripEndDate && tripEndDate >= fromDate);
+		}
+
+		if (dateMatches && toDate) {
+			dateMatches = Boolean(tripStartDate && tripStartDate <= toDate);
+		}
+
 		const countryMatches =
-			!countryQuery || (trip.countries ?? []).some((country) => String(country).toLowerCase().includes(countryQuery));
+			countryQueries.length === 0 ||
+			(trip.countries ?? []).some((country) =>
+				countryQueries.some((query) => String(country).toLowerCase().includes(query)),
+			);
 		const cityMatches =
-			!cityQuery || (trip.cities ?? []).some((city) => String(city).toLowerCase().includes(cityQuery));
+			cityQueries.length === 0 ||
+			(trip.cities ?? []).some((city) => cityQueries.some((query) => String(city).toLowerCase().includes(query)));
 
 		return titleMatches && dateMatches && countryMatches && cityMatches;
 	});
